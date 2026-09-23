@@ -1,0 +1,92 @@
+plugins {
+    id 'java'
+    id 'io.qameta.allure' version '2.12.0'
+}
+
+group = 'io.github.antondorovs'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.14.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'io.rest-assured:rest-assured:6.0.1'
+    testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.22.3'
+    testImplementation 'com.codeborne:selenide:7.18.2'
+    testImplementation platform('org.testcontainers:testcontainers-bom:2.0.5')
+    testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+    testImplementation 'org.testcontainers:testcontainers-postgresql'
+    testRuntimeOnly 'org.postgresql:postgresql:42.7.13'
+    testImplementation platform('io.qameta.allure:allure-bom:2.35.5')
+    testImplementation 'io.qameta.allure:allure-junit5'
+    testImplementation 'io.qameta.allure:allure-rest-assured'
+    testImplementation 'io.qameta.allure:allure-selenide'
+}
+
+allure {
+    version = '2.46.1'
+    adapter {
+        allureJavaVersion = '2.35.5'
+        aspectjWeaver = false
+        frameworks {
+            junit5 { enabled = true }
+        }
+    }
+}
+
+tasks.register('cleanAllureResults', Delete) {
+    delete layout.buildDirectory.dir('allure-results')
+}
+
+tasks.register('apiTest', Test) {
+    description = 'Runs the public product API tests.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'api' }
+}
+
+tasks.register('uiTest', Test) {
+    description = 'Runs the SauceDemo browser tests.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'ui' }
+}
+
+tasks.register('dbTest', Test) {
+    description = 'Runs the PostgreSQL tests in Testcontainers.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'db' }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(Test).configureEach {
+    dependsOn 'cleanAllureResults'
+    outputs.upToDateWhen { false }
+    useJUnitPlatform()
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat = 'full'
+    }
+    ['api.baseUrl', 'ui.baseUrl', 'browser', 'headless', 'ui.timeout', 'selenide.remote'].each { key ->
+        if (System.getProperty(key) != null) {
+            systemProperty key, System.getProperty(key)
+        }
+    }
+}

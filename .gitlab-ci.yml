@@ -1,0 +1,71 @@
+stages:
+  - test
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+default:
+  image: eclipse-temurin:21-jdk-jammy
+  timeout: 20 minutes
+  cache:
+    key:
+      files:
+        - build.gradle
+        - gradle/wrapper/gradle-wrapper.properties
+    paths:
+      - .gradle/caches/
+      - .gradle/wrapper/
+  retry:
+    max: 1
+    when: runner_system_failure
+
+variables:
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+  HEADLESS: "true"
+
+.gradle-test:
+  stage: test
+  script:
+    - ./gradlew "$TEST_SUITE" --no-daemon
+  after_script:
+    - ./gradlew allureReport --no-daemon
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - build/reports/
+      - build/test-results/
+      - build/allure-results/
+      - build/selenide/
+    reports:
+      junit: build/test-results/*/TEST-*.xml
+
+api-tests:
+  extends: .gradle-test
+  variables:
+    TEST_SUITE: apiTest
+
+ui-tests:
+  extends: .gradle-test
+  services:
+    - name: selenium/standalone-chrome:4.49.0-20260909
+      alias: selenium
+  variables:
+    TEST_SUITE: uiTest
+    SELENIDE_REMOTE: http://selenium:4444
+    SE_BROWSER_ARGS_DISABLE_DEV_SHM_USAGE: --disable-dev-shm-usage
+
+db-tests:
+  extends: .gradle-test
+  services:
+    - name: docker:28.3.3-dind
+      alias: docker
+      command: ["--tls=false"]
+  variables:
+    TEST_SUITE: dbTest
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    TESTCONTAINERS_HOST_OVERRIDE: docker
