@@ -15,6 +15,14 @@ public class ProductsClient {
                 .queryParam("limit", limit).queryParam("skip", skip).get("/products");
     }
 
+    public Response listProductCategories() {
+        return given().spec(ApiSpecifications.request()).get("/products/category-list");
+    }
+
+    public Response listProductCategoryDetails() {
+        return given().spec(ApiSpecifications.request()).get("/products/categories");
+    }
+
     public Response searchProducts(String query) {
         return given().spec(ApiSpecifications.request())
                 .queryParam("q", query).get("/products/search");

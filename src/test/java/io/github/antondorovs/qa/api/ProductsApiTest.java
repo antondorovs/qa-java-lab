@@ -1,6 +1,7 @@
 package io.github.antondorovs.qa.api;
 
 import io.github.antondorovs.qa.models.Product;
+import io.github.antondorovs.qa.models.ProductCategory;
 import io.github.antondorovs.qa.models.ProductRequest;
 import io.github.antondorovs.qa.models.ProductsResponse;
 import io.github.antondorovs.qa.utils.JsonFiles;
@@ -11,10 +12,12 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 
 import static io.github.antondorovs.qa.api.ApiSpecifications.jsonResponse;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -48,6 +51,27 @@ class ProductsApiTest {
         Product firstExpected = client.listProducts(skip + limit, 0).then()
                 .spec(jsonResponse(200)).extract().as(ProductsResponse.class).products().get(skip);
         assertEquals(firstExpected.id(), response.products().getFirst().id());
+    }
+
+    @Test
+    void listsCategoriesUsedForProductFiltering() {
+        client.listProductCategories().then()
+                .spec(jsonResponse(200))
+                .body("$", hasItems("beauty", "furniture", "smartphones"));
+    }
+
+    @Test
+    void exposesCategoryDetailsForProductFiltering() {
+        ProductCategory beauty = Arrays.stream(client.listProductCategoryDetails().then()
+                        .spec(jsonResponse(200)).extract().as(ProductCategory[].class))
+                .filter(category -> category.slug().equals("beauty"))
+                .findFirst()
+                .orElseThrow();
+
+        assertAll(
+                () -> assertEquals("Beauty", beauty.name()),
+                () -> assertEquals("https://dummyjson.com/products/category/beauty", beauty.url())
+        );
     }
 
     @ParameterizedTest
