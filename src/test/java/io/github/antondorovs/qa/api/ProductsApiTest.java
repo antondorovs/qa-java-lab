@@ -16,8 +16,12 @@ import java.util.Arrays;
 
 import static io.github.antondorovs.qa.api.ApiSpecifications.jsonResponse;
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.blankOrNullString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -38,6 +42,16 @@ class ProductsApiTest {
         assertTrue(product.price().compareTo(BigDecimal.ZERO) > 0);
     }
 
+    @Test
+    void returnsOnlySelectedProductFields() {
+        client.getProductFields(1, "title", "price").then()
+                .spec(jsonResponse(200))
+                .body("$", aMapWithSize(3))
+                .body("id", equalTo(1))
+                .body("title", not(blankOrNullString()))
+                .body("price", notNullValue());
+    }
+
     @ParameterizedTest(name = "limit={0}, skip={1}")
     @CsvSource({"1, 0", "5, 0", "5, 5"})
     void paginatesProducts(int limit, int skip) {
@@ -51,6 +65,20 @@ class ProductsApiTest {
         Product firstExpected = client.listProducts(skip + limit, 0).then()
                 .spec(jsonResponse(200)).extract().as(ProductsResponse.class).products().get(skip);
         assertEquals(firstExpected.id(), response.products().getFirst().id());
+    }
+
+    @Test
+    void sortsProductsByPriceInAscendingOrder() {
+        ProductsResponse response = client.listProductsSortedBy(20, "price", "asc").then()
+                .spec(jsonResponse(200)).extract().as(ProductsResponse.class);
+
+        assertEquals(20, response.products().size());
+        for (int index = 1; index < response.products().size(); index++) {
+            BigDecimal previousPrice = response.products().get(index - 1).price();
+            BigDecimal currentPrice = response.products().get(index).price();
+            assertTrue(previousPrice.compareTo(currentPrice) <= 0,
+                    "Prices are not sorted at index " + index);
+        }
     }
 
     @Test

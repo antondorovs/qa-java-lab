@@ -10,9 +10,23 @@ public class ProductsClient {
         return given().spec(ApiSpecifications.request()).get("/products/{id}", id);
     }
 
+    public Response getProductFields(int id, String... fields) {
+        return given().spec(ApiSpecifications.request())
+                .queryParam("select", String.join(",", fields))
+                .get("/products/{id}", id);
+    }
+
     public Response listProducts(int limit, int skip) {
         return given().spec(ApiSpecifications.request())
                 .queryParam("limit", limit).queryParam("skip", skip).get("/products");
+    }
+
+    public Response listProductsSortedBy(int limit, String field, String order) {
+        return given().spec(ApiSpecifications.request())
+                .queryParam("limit", limit)
+                .queryParam("sortBy", field)
+                .queryParam("order", order)
+                .get("/products");
     }
 
     public Response listProductCategories() {
